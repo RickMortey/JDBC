@@ -71,9 +71,9 @@ public class ExecuteQuery {
 
     @Data
     @AllArgsConstructor
-    public class Query6Result {
+    public class Query7Result {
         private final Date day;
-        private final int losses;
+        private final double losses;
     }
     enum Day {
 
@@ -259,11 +259,67 @@ public class ExecuteQuery {
         );
     }
 
-//    public ArrayList<Query6Result> executeQuery7(String interval) throws SQLException, IOException {
-//        String firstDate = interval.substring(1, interval.indexOf(","));
-//        String SecondDate = interval.substring(interval.indexOf(",")+2, interval.length() - 1);
-//        source.preparedStatement(
-//                ""
-//        )
-//    }
+    public ArrayList<Query7Result> executeQuery7(String interval) throws SQLException, IOException {
+        String firstDate = interval.substring(1, interval.indexOf(","));
+        String secondDate = interval.substring(interval.indexOf(",") + 2, interval.length() - 1);
+        return source.preparedStatement(
+                "update Flights\n" +
+                        "set status = 'Calcelled'\n" +
+                        "where 1 = 1\n" +
+                        "and Flights.departure_airport in ('SVO', 'VKO', 'DME')\n" +
+                        "and Flights.scheduled_departure between ? and ?;\n" +
+                        "update Flights\n" +
+                        "set status = 'Calcelled'\n" +
+                        "where 1 = 1\n" +
+                        "and Flights.arrival_airport in ('SVO', 'VKO', 'DME')\n" +
+                        "and Flights.scheduled_arrival between ? and ?;\n" +
+                        "with cte as (\n" +
+                        "  Flights.scheduled_departure\n" +
+                        "  sum(Ticket_flights.amount) as losses\n" +
+                        "  from Flights\n" +
+                        "  left join Ticket_flights\n" +
+                        "  on Flights.flight_id = Ticket_flights.flight_id\n" +
+                        "  where 1 = 1\n" +
+                        "  and Flights.scheduled_departure between ? and ?\n" +
+                        "  and Flights.departure_airport in ('SVO', 'VKO', 'DME')\n" +
+                        "  and Flights.status = 'Cancelled'\n" +
+                        "  group by Flights.scheduled_departure\n" +
+                        ")\n" +
+                        ",cte2 as (\n" +
+                        "  Flights.scheduled_arrival\n" +
+                        "  sum(Ticket_flights.amount) as losses\n" +
+                        "  from Flights\n" +
+                        "  left join Ticket_flights\n" +
+                        "  on Flights.flight_id = Ticket_flights.flight_id\n" +
+                        "  where 1 = 1\n" +
+                        "  and Flights.scheduled_arrival between ? and ?\n" +
+                        "  and Flights.arrival_airport in ('SVO', 'VKO', 'DME')\n" +
+                        "  and Flights.status = 'Cancelled'\n" +
+                        "  group by Flights.scheduled_arrival\n" +
+                        ")\n" +
+                        "select\n" +
+                        "  cte.scheduled_departure as day_loss\n" +
+                        "  ,coalesce(cte.losses, 0) + coalesce(cte2.losses, 0) as losses\n" +
+                        "from cte\n" +
+                        "left join cte2\n" +
+                        "on cte.scheduled_departure = cte2.scheduled_arrival", insertDates -> {
+                    insertDates.setString(1, firstDate);
+                    insertDates.setString(2, secondDate);
+                    insertDates.setString(3, firstDate);
+                    insertDates.setString(4, secondDate);
+                    insertDates.setString(5, firstDate);
+                    insertDates.setString(6, secondDate);
+                    insertDates.setString(7, firstDate);
+                    insertDates.setString(8, secondDate);
+
+                    ArrayList<Query7Result> result = new ArrayList<>();
+                    ResultSet resultSet = insertDates.executeQuery();
+                    while (resultSet.next()) {
+                        result.add(new Query7Result(resultSet.getDate(1), resultSet.getDouble(2)));
+                    }
+                    return result;
+
+                }
+        );
+    }
 }
